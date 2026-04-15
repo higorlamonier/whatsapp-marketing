@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum ContactStatus {
+  ACTIVE
+  INVALID_NUMBER
+  BLOCKED
+  DO_NOT_CONTACT
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  PROCESSING
+  FINISHED
+  PAUSED
+}
+
+enum RecipientStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  UNSUBSCRIBED
+}
+
+model Consultant {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?  @unique
+  phone     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contacts Contact[]
+  history  LeadOwnershipHistory[]
+}
+
+model Contact {
+  id                String        @id @default(cuid())
+  fullName          String
+  phoneNumber       String        @unique
+  email             String?
+  source            String?
+  category          String?
+  notes             String?
+  city              String?
+  state             String?
+  country           String?
+  optedOutAt        DateTime?
+  isDuplicate       Boolean       @default(false)
+  duplicateGroupKey String?
+  status            ContactStatus @default(ACTIVE)
+  sentToConsultant  Boolean       @default(false)
+  leadScore         Int           @default(0)
+  leadStage         String?
+  isLead            Boolean       @default(false)
+  assignedToId      String?
+  lastMessageAt     DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  assignedTo Consultant?            @relation(fields: [assignedToId], references: [id])
+  recipients CampaignRecipient[]
+  history    LeadOwnershipHistory[]
+  logs       MessageLog[]
+
+  @@index([category])
+  @@index([status])
+  @@index([isLead, assignedToId])
+}
+
+model Campaign {
+  id               String         @id @default(cuid())
+  name             String
+  category         String
+  templateName     String
+  templateLanguage String         @default("pt_BR")
+  status           CampaignStatus @default(DRAFT)
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  recipients CampaignRecipient[]
+}
+
+model CampaignRecipient {
+  id                String          @id @default(cuid())
+  campaignId        String
+  contactId         String
+  status            RecipientStatus @default(PENDING)
+  whatsappMessageId String?
+  errorReason       String?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact  Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  logs MessageLog[]
+
+  @@unique([campaignId, contactId])
+  @@index([status])
+}
+
+model MessageLog {
+  id                  String   @id @default(cuid())
+  contactId           String
+  campaignRecipientId String?
+  direction           String
+  eventType           String
+  payload             Json
+  createdAt           DateTime @default(now())
+
+  contact   Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  recipient CampaignRecipient? @relation(fields: [campaignRecipientId], references: [id], onDelete: SetNull)
+
+  @@index([eventType, createdAt])
+}
+
+model UnsubscribeEvent {
+  id         String   @id @default(cuid())
+  contactId  String?
+  phone      String
+  reason     String?
+  rawMessage String?
+  createdAt  DateTime @default(now())
+
+  @@index([phone])
+}
+
+model LeadOwnershipHistory {
+  id            String   @id @default(cuid())
+  contactId     String
+  consultantId  String
+  changedBy     String
+  previousOwner String?
+  createdAt     DateTime @default(now())
+
+  contact    Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  consultant Consultant @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  @@index([contactId, createdAt])
+}

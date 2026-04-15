@@ -1,0 +1,142 @@
+﻿:root {
+  --bg: #f3f0e8;
+  --paper: #fffdf9;
+  --ink: #1a1814;
+  --muted: #6b6459;
+  --accent: #116466;
+  --accent-2: #d9b08c;
+  --danger: #b6383f;
+  --ok: #1d6d2f;
+  --radius: 14px;
+  --shadow: 0 14px 38px rgba(26, 24, 20, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 12% 10%, rgba(217, 176, 140, 0.28), transparent 34%),
+    radial-gradient(circle at 90% 30%, rgba(17, 100, 102, 0.19), transparent 26%),
+    var(--bg);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 2rem;
+}
+
+p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.stats {
+  margin-top: 22px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.card {
+  background: var(--paper);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.card small {
+  color: var(--muted);
+}
+
+.card strong {
+  margin-top: 8px;
+  display: block;
+  font-size: 1.5rem;
+}
+
+.grid {
+  margin-top: 22px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+}
+
+form {
+  display: grid;
+  gap: 10px;
+}
+
+input, textarea, button {
+  border-radius: 10px;
+  border: 1px solid #ddd5ca;
+  padding: 10px;
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 0;
+  color: white;
+  background: linear-gradient(120deg, var(--accent), #1f8b8f);
+  font-weight: 700;
+}
+
+button.secondary {
+  background: linear-gradient(120deg, #3c3c3c, #6a6a6a);
+}
+
+.list {
+  max-height: 280px;
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+}
+
+.list-item {
+  border: 1px solid #ece3d7;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+}
+
+.badge {
+  font-size: 0.75rem;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #efe7dc;
+  color: #3f3a34;
+}
+
+.notice {
+  margin-top: 8px;
+  font-size: 0.86rem;
+}
+
+.notice.ok {
+  color: var(--ok);
+}
+
+.notice.error {
+  color: var(--danger);
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 16px;
+  }
+
+  h1 {
+    font-size: 1.45rem;
+  }
+}

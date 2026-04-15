@@ -84,6 +84,10 @@ model Campaign {
   category         String
   templateName     String
   templateLanguage String         @default("pt_BR")
+  description      String?
+  messagePreview   String?
+  headerImageUrl   String?
+  callToActionUrl  String?
   status           CampaignStatus @default(DRAFT)
   startedAt        DateTime?
   finishedAt       DateTime?
@@ -103,6 +107,9 @@ model CampaignRecipient {
   sentAt            DateTime?
   deliveredAt       DateTime?
   readAt            DateTime?
+  repliedAt         DateTime?
+  responseCount     Int             @default(0)
+  lastInboundAt     DateTime?
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
@@ -113,6 +120,7 @@ model CampaignRecipient {
 
   @@unique([campaignId, contactId])
   @@index([status])
+  @@index([repliedAt])
 }
 
 model MessageLog {
@@ -151,6 +159,21 @@ model LeadOwnershipHistory {
 
   contact    Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
   consultant Consultant @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  @@index([contactId, createdAt])
+}
+
+model N8nRouteEvent {
+  id                String   @id @default(cuid())
+  contactId         String
+  campaignId        String?
+  campaignRecipientId String?
+  success           Boolean
+  endpoint          String
+  responseCode      Int?
+  errorMessage      String?
+  payload           Json
+  createdAt         DateTime @default(now())
 
   @@index([contactId, createdAt])
 }

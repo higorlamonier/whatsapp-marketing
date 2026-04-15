@@ -4,10 +4,26 @@ type SendTemplatePayload = {
   to: string;
   templateName: string;
   languageCode: string;
+  headerImageUrl?: string | null;
 };
 
 export async function sendTemplateMessage(payload: SendTemplatePayload): Promise<{ messageId: string }> {
   const url = `https://graph.facebook.com/${env.WHATSAPP_API_VERSION}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+
+  const components = [];
+  if (payload.headerImageUrl) {
+    components.push({
+      type: "header",
+      parameters: [
+        {
+          type: "image",
+          image: {
+            link: payload.headerImageUrl
+          }
+        }
+      ]
+    });
+  }
 
   const response = await fetch(url, {
     method: "POST",
@@ -23,7 +39,8 @@ export async function sendTemplateMessage(payload: SendTemplatePayload): Promise
         name: payload.templateName,
         language: {
           code: payload.languageCode
-        }
+        },
+        ...(components.length > 0 ? { components } : {})
       }
     })
   });

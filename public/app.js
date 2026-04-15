@@ -1,6 +1,9 @@
 ﻿const statsEl = document.getElementById("stats");
+const insightsRatesEl = document.getElementById("insightsRates");
+const timelineEl = document.getElementById("timeline");
 const contactsListEl = document.getElementById("contactsList");
 const campaignsListEl = document.getElementById("campaignsList");
+const n8nStatusEl = document.getElementById("n8nStatus");
 
 const importForm = document.getElementById("importForm");
 const campaignForm = document.getElementById("campaignForm");
@@ -14,6 +17,9 @@ const contactsJson = document.getElementById("contactsJson");
 const campaignName = document.getElementById("campaignName");
 const campaignCategory = document.getElementById("campaignCategory");
 const templateName = document.getElementById("templateName");
+const headerImageUrl = document.getElementById("headerImageUrl");
+const ctaUrl = document.getElementById("ctaUrl");
+const messagePreview = document.getElementById("messagePreview");
 const sendCampaignId = document.getElementById("sendCampaignId");
 const sendLimit = document.getElementById("sendLimit");
 const prepareBtn = document.getElementById("prepareBtn");
@@ -24,7 +30,11 @@ function showNotice(el, text, isError = false) {
 }
 
 function statCard(label, value) {
-  return `<article class="card"><small>${label}</small><strong>${value}</strong></article>`;
+  return `<article class="stat"><small>${label}</small><strong>${value}</strong></article>`;
+}
+
+function metricCard(label, value, suffix = "%") {
+  return `<article class="metric"><span>${label}</span><strong>${Number(value).toFixed(2)}${suffix}</strong></article>`;
 }
 
 async function loadStats() {
@@ -41,17 +51,50 @@ async function loadStats() {
   ].join("");
 }
 
+async function loadInsights() {
+  const insights = await fetch("/api/dashboard/insights").then((r) => r.json());
+  const rates = insights.rates;
+
+  insightsRatesEl.innerHTML = [
+    metricCard("Taxa de sucesso", rates.successRate),
+    metricCard("Taxa de entrega", rates.deliveryRate),
+    metricCard("Taxa de leitura", rates.readRate),
+    metricCard("Taxa de retorno", rates.replyRate),
+    metricCard("Conversao em lead", rates.leadConversionRate)
+  ].join("");
+
+  n8nStatusEl.textContent = insights.integrations.n8nEnabled ? "N8N: conectado" : "N8N: nao configurado";
+}
+
+async function loadTimeline() {
+  const rows = await fetch("/api/dashboard/timeline?days=7").then((r) => r.json());
+  const maxSent = Math.max(1, ...rows.map((row) => row.sent));
+
+  timelineEl.innerHTML = rows.map((row) => {
+    const ratio = Math.round((row.sent / maxSent) * 100);
+    return `
+      <div class="timeline-row">
+        <div>${row.date.slice(5)}</div>
+        <div>
+          <div class="timeline-bar"><div class="timeline-fill" style="width:${ratio}%"></div></div>
+          <small>enviadas: ${row.sent} | retorno: ${row.replies} | falhas: ${row.failed}</small>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
 async function loadContacts() {
   const contacts = await fetch("/api/contacts").then((r) => r.json());
   contactsListEl.innerHTML = contacts.slice(0, 15).map((contact) => {
-    return `<div class="list-item"><strong>${contact.fullName}</strong><br>${contact.phoneNumber}<br><span class="badge">${contact.category ?? "sem categoria"}</span></div>`;
+    return `<div class="list-item"><strong>${contact.fullName}</strong><br>${contact.phoneNumber}<br><span class="badge">${contact.category ?? "sem categoria"}</span> <span class="badge">lead: ${contact.isLead ? "sim" : "nao"}</span></div>`;
   }).join("");
 }
 
 async function loadCampaigns() {
   const campaigns = await fetch("/api/campaigns").then((r) => r.json());
   campaignsListEl.innerHTML = campaigns.slice(0, 15).map((campaign) => {
-    return `<div class="list-item"><strong>${campaign.name}</strong><br>ID: ${campaign.id}<br><span class="badge">${campaign.status}</span> <span class="badge">${campaign.category}</span></div>`;
+    return `<div class="list-item"><strong>${campaign.name}</strong><br>ID: ${campaign.id}<br><span class="badge">${campaign.status}</span> <span class="badge">cat: ${campaign.category}</span><br><small>sucesso: ${campaign.metrics.successRate}% | retorno: ${campaign.metrics.replyRate}%</small></div>`;
   }).join("");
 }
 
@@ -71,7 +114,7 @@ importForm.addEventListener("submit", async (event) => {
     }
 
     showNotice(importNotice, `Importado com sucesso. Novos: ${json.created}, duplicados: ${json.duplicates}`);
-    await Promise.all([loadContacts(), loadStats()]);
+    await Promise.all([loadContacts(), loadStats(), loadInsights()]);
   } catch (error) {
     showNotice(importNotice, error.message || "Erro ao importar", true);
   }
@@ -86,7 +129,10 @@ campaignForm.addEventListener("submit", async (event) => {
       body: JSON.stringify({
         name: campaignName.value,
         category: campaignCategory.value,
-        templateName: templateName.value
+        templateName: templateName.value,
+        headerImageUrl: headerImageUrl.value || undefined,
+        callToActionUrl: ctaUrl.value || undefined,
+        messagePreview: messagePreview.value || undefined
       })
     });
     const json = await response.json();
@@ -136,10 +182,10 @@ sendForm.addEventListener("submit", async (event) => {
     }
 
     showNotice(sendNotice, `Lote enviado. Sucesso: ${json.sent}, falhas: ${json.failed}, pendentes: ${json.remaining}`);
-    await Promise.all([loadCampaigns(), loadStats()]);
+    await Promise.all([loadCampaigns(), loadStats(), loadInsights(), loadTimeline()]);
   } catch (error) {
     showNotice(sendNotice, error.message || "Erro no disparo", true);
   }
 });
 
-await Promise.all([loadStats(), loadContacts(), loadCampaigns()]);
+await Promise.all([loadStats(), loadInsights(), loadTimeline(), loadContacts(), loadCampaigns()]);

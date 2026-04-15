@@ -14,7 +14,9 @@ const envSchema = z.object({
   WHATSAPP_PHONE_NUMBER_ID: z.string().default(""),
   WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().default(""),
   WHATSAPP_API_VERSION: z.string().default("v22.0"),
-  WEBHOOK_VERIFY_TOKEN: z.string().default("")
+  WEBHOOK_VERIFY_TOKEN: z.string().default(""),
+  N8N_WEBHOOK_URL: z.string().default(""),
+  N8N_WEBHOOK_AUTH_TOKEN: z.string().default("")
 });
 
 const parsed = envSchema.parse(process.env);

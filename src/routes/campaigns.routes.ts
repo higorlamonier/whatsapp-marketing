@@ -8,24 +8,48 @@ const createCampaignSchema = z.object({
   name: z.string().min(2),
   category: z.string().min(2),
   templateName: z.string().min(2),
-  templateLanguage: z.string().default("pt_BR")
+  templateLanguage: z.string().default("pt_BR"),
+  description: z.string().optional(),
+  messagePreview: z.string().optional(),
+  headerImageUrl: z.string().url().optional(),
+  callToActionUrl: z.string().url().optional()
 });
 
 export const campaignsRouter = Router();
 
+function isSentLikeStatus(status: RecipientStatus): boolean {
+  return status === RecipientStatus.SENT || status === RecipientStatus.DELIVERED || status === RecipientStatus.READ;
+}
+
 campaignsRouter.get("/", async (_req, res) => {
   const campaigns = await prisma.campaign.findMany({
-    include: {
-      _count: {
-        select: { recipients: true }
-      }
-    },
+    include: { recipients: true },
     orderBy: {
       createdAt: "desc"
     }
   });
 
-  res.json(campaigns);
+  const enriched = campaigns.map((campaign) => {
+    const total = campaign.recipients.length;
+    const sentBase = campaign.recipients.filter((item) => isSentLikeStatus(item.status)).length;
+    const delivered = campaign.recipients.filter((item) => item.status === RecipientStatus.DELIVERED).length;
+    const read = campaign.recipients.filter((item) => item.status === RecipientStatus.READ).length;
+    const failed = campaign.recipients.filter((item) => item.status === RecipientStatus.FAILED).length;
+    const replied = campaign.recipients.filter((item) => item.repliedAt).length;
+
+    return {
+      ...campaign,
+      metrics: {
+        totalRecipients: total,
+        successRate: sentBase > 0 ? Number((((sentBase - failed) / sentBase) * 100).toFixed(2)) : 0,
+        deliveryRate: sentBase > 0 ? Number(((delivered / sentBase) * 100).toFixed(2)) : 0,
+        readRate: delivered > 0 ? Number(((read / delivered) * 100).toFixed(2)) : 0,
+        replyRate: sentBase > 0 ? Number(((replied / sentBase) * 100).toFixed(2)) : 0
+      }
+    };
+  });
+
+  res.json(enriched);
 });
 
 campaignsRouter.post("/", async (req, res) => {
@@ -134,7 +158,8 @@ campaignsRouter.post("/:id/send", async (req, res) => {
       const result = await sendTemplateMessage({
         to: recipient.contact.phoneNumber,
         templateName: campaign.templateName,
-        languageCode: campaign.templateLanguage
+        languageCode: campaign.templateLanguage,
+        headerImageUrl: campaign.headerImageUrl
       });
 
       await prisma.campaignRecipient.update({
@@ -159,7 +184,11 @@ campaignsRouter.post("/:id/send", async (req, res) => {
           campaignRecipientId: recipient.id,
           direction: "OUTBOUND",
           eventType: "TEMPLATE_SENT",
-          payload: { messageId: result.messageId }
+          payload: {
+            messageId: result.messageId,
+            campaignId: campaign.id,
+            campaignName: campaign.name
+          }
         }
       });
 

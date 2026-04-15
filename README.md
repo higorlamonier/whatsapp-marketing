@@ -1,102 +1,72 @@
 ﻿# WhatsApp Marketing Platform
 
-Projeto robusto para disparo em massa com WhatsApp Cloud API e controle completo em SQL.
+Plataforma robusta para disparo em massa com WhatsApp Cloud API, SQL e roteamento de leads via n8n.
 
-## O que ja esta implementado
+## Implementado
 
-- Interface web administrativa para importacao, criacao de campanha e disparo por lote.
-- Integracao com SQL (MySQL via Prisma).
-- Controle de duplicidade por telefone.
-- Controle de descadastro (opt-out) via webhook com palavras-chave.
-- Controle de status de envio (PENDING, SENT, DELIVERED, READ, FAILED).
-- Controle de categoria de campanha e categoria de contatos.
-- Controle de lead e responsavel comercial (consultor) + historico de ownership.
-- Log de eventos de mensagens e insights basicos no dashboard.
-- Validacao de assinatura de webhook (`X-Hub-Signature-256`) usando `META_APP_SECRET`.
+- Painel web com layout tecnologico e blocos de operacao.
+- Importacao de contatos com deduplicacao.
+- Campanhas com template Meta + imagem de header opcional.
+- Dashboard com insights: sucesso, entrega, leitura, retorno e conversao em lead.
+- Timeline operacional dos ultimos dias (enviadas, retorno, falhas).
+- Controle de status por destinatario (`PENDING`, `SENT`, `DELIVERED`, `READ`, `FAILED`).
+- Webhook da Meta com validacao de assinatura (`X-Hub-Signature-256`).
+- Roteamento de respostas para n8n com log de sucesso/erro (`N8nRouteEvent`).
+- Rastreio de ultimas campanhas com metricas por campanha.
 
 ## Stack
 
 - Node.js + TypeScript + Express
 - Prisma ORM
 - MySQL
-- WhatsApp Cloud API (Meta)
+- WhatsApp Cloud API
+- n8n (integração webhook)
 
-## Como rodar
+## Ambiente
 
-1. Instale dependencias:
+Use `.env.example` como base:
+
+- `DATABASE_URL`
+- `META_APP_ID`
+- `META_APP_SECRET`
+- `WHATSAPP_TOKEN`
+- `WHATSAPP_PHONE_NUMBER_ID`
+- `WHATSAPP_BUSINESS_ACCOUNT_ID`
+- `WEBHOOK_VERIFY_TOKEN`
+- `N8N_WEBHOOK_URL`
+- `N8N_WEBHOOK_AUTH_TOKEN` (opcional)
+
+## Comandos
 
 ```bash
 npm install
-```
-
-2. Copie variaveis de ambiente:
-
-```bash
-cp .env.example .env
-```
-
-3. Gere o Prisma Client e rode migracao:
-
-```bash
 npm run prisma:generate
-npm run prisma:migrate -- --name init
-```
-
-4. Suba o servidor:
-
-```bash
+npx prisma db push
 npm run dev
 ```
 
-5. Abra o painel:
+## Webhooks
 
-- `http://localhost:3000`
+- Meta verify: `GET /api/webhooks/whatsapp`
+- Meta events: `POST /api/webhooks/whatsapp`
+- n8n destino: definido em `N8N_WEBHOOK_URL`
 
-## Configuracao da Meta
+## Endpoints
 
-- URL de webhook: `https://marketing.araunahtech.com.br/api/webhooks/whatsapp`
-- Token de verificacao: valor de `WEBHOOK_VERIFY_TOKEN`
-- Endpoint de verificacao: `GET /api/webhooks/whatsapp`
-- Endpoint de eventos: `POST /api/webhooks/whatsapp`
-
-## Endpoints principais
-
-- `GET /health`
 - `GET /api/dashboard/overview`
-- `GET /api/contacts`
+- `GET /api/dashboard/insights`
+- `GET /api/dashboard/timeline?days=7`
 - `POST /api/contacts/import`
-- `PATCH /api/contacts/:id/optout`
-- `PATCH /api/contacts/:id/lead`
-- `GET /api/consultants`
-- `POST /api/consultants`
-- `GET /api/campaigns`
 - `POST /api/campaigns`
 - `POST /api/campaigns/:id/prepare`
 - `POST /api/campaigns/:id/send`
-- `GET /api/webhooks/whatsapp` (verificacao Meta)
-- `POST /api/webhooks/whatsapp` (status + inbox + opt-out)
+- `POST /api/webhooks/whatsapp`
 
-## Fluxo recomendado de operacao
+## Roteamento n8n
 
-1. Cadastrar consultores.
-2. Importar base de contatos por JSON.
-3. Criar campanha com categoria e template da Meta.
-4. Preparar campanha (gera destinatarios para contatos ativos da categoria).
-5. Rodar envio em lotes (`/send`) para controle de throughput.
-6. Meta chama webhook para atualizar status entregue/lido/falha.
-7. Mensagens de opt-out movem contato para `DO_NOT_CONTACT` automaticamente.
+Quando o contato responde mensagem da campanha:
 
-## Melhorias prontas para proxima etapa
-
-- Autenticacao de usuarios no painel (RBAC por equipe).
-- Job queue com retries e rate-limit dinamico (BullMQ + Redis).
-- Agendamento por horario/campanha.
-- Segmentacao avancada por score/engajamento.
-- Importacao CSV com mapeamento visual.
-- BI com funil de conversao por consultor e categoria.
-
-## Seguranca
-
-- As credenciais compartilhadas nesta fase devem ser rotacionadas apos subir em producao.
-- Nunca publicar `.env` em reposito rios Git.
-- Recomenda-se liberar o webhook apenas para IPs da Meta no firewall do servidor.
+1. O sistema marca `repliedAt` no destinatario.
+2. Atualiza o contato para `leadStage=RESPONDED_CAMPAIGN`.
+3. Envia payload para `N8N_WEBHOOK_URL` com contato, campanha, consultor e mensagem.
+4. Registra resultado no banco (`N8nRouteEvent`).

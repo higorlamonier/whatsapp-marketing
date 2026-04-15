@@ -5,6 +5,7 @@
   "description": "Plataforma robusta de disparo em massa com WhatsApp Cloud API e SQL",
   "main": "dist/server.js",
   "scripts": {
+    "postinstall": "npm run build",
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
